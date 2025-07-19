@@ -1,0 +1,9 @@
+botbuilder-integration-aiohttp>=4.14.0
+bs4
+asyncio
+aiohttp
+botbuilder-core
+cookiecutter==1.7.0
+dotenv
+numpy
+openai
