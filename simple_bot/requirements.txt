@@ -7,3 +7,4 @@ cookiecutter==1.7.0
 dotenv
 numpy
 openai
+tldextract

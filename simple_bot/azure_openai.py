@@ -14,14 +14,16 @@ from bs4 import BeautifulSoup, Comment
 from dotenv import load_dotenv
 from numpy import dot
 from numpy.linalg import norm
+import tldextract
+from urllib.parse import urljoin, urlparse
 
 
 load_dotenv()
 
 
-logging.basicConfig(level=logging.INFO)
-openai_logger = logging.getLogger("openai")
-openai_logger.setLevel(logging.DEBUG)
+# logging.basicConfig(level=logging.INFO)
+# openai_logger = logging.getLogger("openai")
+# openai_logger.setLevel(logging.DEBUG)
 
 
 # Configure the Azure OpenAI client
@@ -86,39 +88,27 @@ tools = [
 def get_weather(location):
     return f"The weather in {location} is sunny with a high of 25°C."
 
+MAX_LINKS_TO_FOLLOW = 10  # You can increase this for deeper scraping
+
 def get_embedding(text: str) -> list:
     if not isinstance(text, str):
-        print("[x] Input must be a string")
-        raise ValueError("Embedding input must be a string")
-    
-    if len(text) > 10000:
-        print("[!] Input text too long, truncating to 10000 characters")
-        text = text[:10000]
-
-    print(f"[*] Getting embedding for text: '{text[:50]}...' (length={len(text)}, type={type(text)})")
+        raise ValueError("Expected string for embedding")
+    text = text.strip()[:8191]
     response = openai_embeddings_client.embeddings.create(
-        model=os.getenv("OPENAI_EMBEDDINGS_DEPLOYMENT_NAME"),
+        model=os.getenv("AZURE_EMBEDDING_DEPLOYMENT"),
         input=[text]
     )
     return response.data[0].embedding
 
-def cosine_similarity(vec1, vec2):
-    return dot(vec1, vec2) / (norm(vec1) * norm(vec2))
+def cosine_similarity(a, b):
+    return dot(a, b) / (norm(a) * norm(b))
 
 def extract_visible_text(html):
     soup = BeautifulSoup(html, "html.parser")
-
-    # Remove scripts/styles/comments
     for tag in soup(["script", "style", "header", "footer", "nav", "aside"]):
         tag.extract()
-    for element in soup(text=lambda text: isinstance(text, Comment)):
-        element.extract()
-
-    # Get all visible text chunks
     visible_texts = soup.stripped_strings
-    full_text = " ".join(visible_texts)
-
-    return full_text
+    return " ".join(visible_texts)
 
 def chunk_text(text, max_chars=800):
     sentences = re.split(r'(?<=[.!?]) +', text)
@@ -134,37 +124,80 @@ def chunk_text(text, max_chars=800):
         chunks.append(chunk.strip())
     return chunks
 
+def get_internal_links(base_url, html):
+    soup = BeautifulSoup(html, "html.parser")
+    domain = tldextract.extract(base_url).registered_domain
+    links = set()
+
+    for a in soup.find_all("a", href=True):
+        href = a['href'].strip()
+        full_url = urljoin(base_url, href)
+        if domain in tldextract.extract(full_url).registered_domain:
+            links.add(full_url)
+
+    return list(links)
+
 def scrape_website(url: str, query: str) -> str:
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
+    visited = set()
+    collected_chunks = []
 
-        # Extract and chunk all visible text
-        full_text = extract_visible_text(response.text)
-        text_chunks = chunk_text(full_text)
+    def crawl_page(u):
+        try:
+            print(f"🔗 Visiting: {u}")
+            headers = {"User-Agent": "Mozilla/5.0"}
+            r = requests.get(u, headers=headers, timeout=10)
+            r.raise_for_status()
+            text = extract_visible_text(r.text)
+            chunks = chunk_text(text)
+            return chunks, r.text
+        except Exception as e:
+            print(f"⚠️ Error fetching {u}: {e}")
+            return [], ""
 
-        if not text_chunks:
-            return "❌ No usable text found on the page."
+    # 1. Scrape root page
+    root_chunks, root_html = crawl_page(url)
+    collected_chunks.extend(root_chunks)
 
-        # Embed query once
-        query_vector = get_embedding(query)
+    # 2. Get internal links from root page
+    internal_links = get_internal_links(url, root_html)
 
-        # Score all chunks
-        scored_chunks = []
-        for chunk in text_chunks:
-            chunk_vector = get_embedding(chunk)
-            score = cosine_similarity(query_vector, chunk_vector)
-            scored_chunks.append((score, chunk))
+    # 3. Score links based on anchor text vs. query
+    link_scores = []
+    query_vector = get_embedding(query)
+    for link in internal_links:
+        try:
+            # Use last part of URL or anchor as approximation
+            text = urlparse(link).path.split("/")[-1].replace("-", " ")
+            if not text:
+                continue
+            sim = cosine_similarity(query_vector, get_embedding(text))
+            link_scores.append((sim, link))
+        except Exception:
+            continue
 
-        # Get top match
-        best_score, best_chunk = max(scored_chunks, key=lambda x: x[0])
+    # 4. Sort and visit top-N links
+    top_links = sorted(link_scores, reverse=True)[:MAX_LINKS_TO_FOLLOW]
+    for _, link in top_links:
+        if link not in visited:
+            visited.add(link)
+            chunks, _ = crawl_page(link)
+            collected_chunks.extend(chunks)
 
-        return f"🔍 Best match (score {best_score:.2f}):\n\n{best_chunk}"
+    # 5. Embed all chunks and score them
+    scored_chunks = []
+    for chunk in collected_chunks:
+        try:
+            sim = cosine_similarity(query_vector, get_embedding(chunk))
+            scored_chunks.append((sim, chunk))
+        except Exception:
+            continue
 
-    except Exception as e:
-        print(f"[x] Error scraping website: {traceback.format_exc()}")
-        return f"❌ Error: {str(e)}"
+    if not scored_chunks:
+        return "❌ No relevant content found after crawling."
+
+    # 6. Return top result
+    top_score, top_chunk = max(scored_chunks, key=lambda x: x[0])
+    return f"📌 Best match from crawled pages (score {top_score:.2f}):\n\n{top_chunk}"
     
 # Core LLM agent logic using function-calling
 async def call_azure_openai_agent(user_input: str) -> str:
