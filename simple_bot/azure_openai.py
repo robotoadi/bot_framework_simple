@@ -25,12 +25,20 @@ openai_logger.setLevel(logging.DEBUG)
 
 
 # Configure the Azure OpenAI client
-client = AzureOpenAI(
+openai_chat_client = AzureOpenAI(
     api_version="2024-12-01-preview",
-    azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")  # e.g. https://your-resource.openai.azure.com/
+    azure_deployment=os.getenv("OPENAI_CHAT_DEPLOYMENT_NAME"),
+    api_key=os.getenv("OPENAI_CHAT_API_KEY"),
+    azure_endpoint=os.getenv("OPENAI_CHAT_ENDPOINT")
 )
+
+openai_embeddings_client = AzureOpenAI(
+    api_version="2023-05-15",
+    azure_deployment=os.getenv("OPENAI_EMBEDDINGS_DEPLOYMENT_NAME"),
+    api_key=os.getenv("OPENAI_EMBEDDINGS_API_KEY"),
+    azure_endpoint=os.getenv("OPENAI_EMBEDDINGS_ENDPOINT")
+)
+
 
 # Define function tools
 tools = [
@@ -88,8 +96,8 @@ def get_embedding(text: str) -> list:
         text = text[:10000]
 
     print(f"[*] Getting embedding for text: '{text[:50]}...' (length={len(text)}, type={type(text)})")
-    response = client.embeddings.create(
-        model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    response = openai_embeddings_client.embeddings.create(
+        model=os.getenv("OPENAI_EMBEDDINGS_DEPLOYMENT_NAME"),
         input=[text]
     )
     return response.data[0].embedding
@@ -160,7 +168,7 @@ def scrape_website(url: str, query: str) -> str:
     
 # Core LLM agent logic using function-calling
 async def call_azure_openai_agent(user_input: str) -> str:
-    response = client.chat.completions.create(
+    response = openai_chat_client.chat.completions.create(
         model=os.getenv("AZURE_OPENAI_DEPLOYMENT"),  # e.g., "gpt-4-agent"
         messages=[{"role": "user", "content": user_input}],
         tools=tools,
