@@ -21,6 +21,8 @@ from urllib.parse import urljoin, urlparse
 load_dotenv()
 
 
+LOG_TEXT_LENGTH = 300
+
 # logging.basicConfig(level=logging.INFO)
 # openai_logger = logging.getLogger("openai")
 # openai_logger.setLevel(logging.DEBUG)
@@ -143,11 +145,12 @@ def scrape_website(url: str, query: str) -> str:
 
     def crawl_page(u):
         try:
-            print(f"🔗 Visiting: {u}")
+            print(f"[>] Visiting: {u}")
             headers = {"User-Agent": "Mozilla/5.0"}
             r = requests.get(u, headers=headers, timeout=10)
             r.raise_for_status()
             text = extract_visible_text(r.text)
+            print(f"    [*] Extracted: {text[:LOG_TEXT_LENGTH]}... {len(text)} characters from {u}")
             chunks = chunk_text(text)
             return chunks, r.text
         except Exception as e:

@@ -5,6 +5,7 @@ aiohttp
 botbuilder-core
 cookiecutter==1.7.0
 dotenv
+msal
 numpy
 openai
 tldextract

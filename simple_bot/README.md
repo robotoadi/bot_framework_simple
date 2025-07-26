@@ -1,42 +1,61 @@
-# echo_bot
+# Bot Framework
 
-A bot that echoes back user response.
+## Notes
+https://learn.microsoft.com/en-us/azure/bot-service/bot-service-quickstart-create-bot?view=azure-bot-service-4.0&tabs=csharp%2Cvs
 
-This bot has been created using [Bot Framework](https://dev.botframework.com), it shows how to create a simple bot that accepts input from the user and echoes it back.
+```
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+sudo apt install cookiecutter
+cookiecutter https://github.com/microsoft/BotBuilder-Samples/releases/download/Templates/echo.zip
+```
+bot_name: echo_bot
+bot_description: A bot that echoes back user response.
+```
+cd echo_bot
+pip install -r requirements.txt
+python app.py
+```
+Getting a browser to view the results:
+```
+sudo wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo dpkg -i google-chrome-stable_current_amd64.deb
+sudo apt install --fix-broken -y
+sudo dpkg -i google-chrome-stable_current_amd64.deb
+```
+On host machine (not within WSL)
+Add the file `.wslconfig` to `/Users/<profile name>` with the content:
+```
+[wsl2]
+networkingMode=mirrored
+```
+Then restart `wsl` by running `wsl --shutdown`.
 
-## Prerequisites
+Also edit `app.py`:
+```
+# change host="localhost" to "127.0.0.1"
+web.run_app(APP, host="127.0.0.1", port=CONFIG.PORT)
+```
 
-This sample **requires** prerequisites in order to run.
-
-### Install Python 3.6
-
-## Running the sample
-- Run `pip install -r requirements.txt` to install all dependencies
-- Run `python app.py`
-
-
-## Testing the bot using Bot Framework Emulator
-
-[Bot Framework Emulator](https://github.com/microsoft/botframework-emulator) is a desktop application that allows bot developers to test and debug their bots on localhost or running remotely through a tunnel.
-
-- Install the Bot Framework Emulator version 4.3.0 or greater from [here](https://github.com/Microsoft/BotFramework-Emulator/releases)
-
-### Connect to the bot using Bot Framework Emulator
-
-- Launch Bot Framework Emulator
-- Enter a Bot URL of `http://localhost:3978/api/messages`
+Open Bot Framework Emulator on the host machine, click "Open Bot" and enter 
+"http://127.0.0.1:3978/api/messages" for the Bot URL, then click "Connect".
 
 
-## Further reading
+# Building Bots
+https://github.com/Microsoft/BotBuilder-Samples/blob/main/README.md
 
-- [Bot Framework Documentation](https://docs.botframework.com)
-- [Bot Basics](https://docs.microsoft.com/azure/bot-service/bot-builder-basics?view=azure-bot-service-4.0)
-- [Dialogs](https://docs.microsoft.com/azure/bot-service/bot-builder-concept-dialog?view=azure-bot-service-4.0)
-- [Gathering Input Using Prompts](https://docs.microsoft.com/azure/bot-service/bot-builder-prompts?view=azure-bot-service-4.0&tabs=csharp)
-- [Activity processing](https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-concept-activity-processing?view=azure-bot-service-4.0)
-- [Azure Bot Service Introduction](https://docs.microsoft.com/azure/bot-service/bot-service-overview-introduction?view=azure-bot-service-4.0)
-- [Azure Bot Service Documentation](https://docs.microsoft.com/azure/bot-service/?view=azure-bot-service-4.0)
-- [Azure CLI](https://docs.microsoft.com/cli/azure/?view=azure-cli-latest)
-- [Azure Portal](https://portal.azure.com)
-- [Language Understanding using LUIS](https://docs.microsoft.com/azure/cognitive-services/luis/)
-- [Channels and Bot Connector Service](https://docs.microsoft.com/azure/bot-service/bot-concepts?view=azure-bot-service-4.0)
+Connecting to Azure Open AI
+- Create an Azure OpenAI resource
+- In the resource on Azure portal, go to Overview > Explore Azure AI Foundry Portal
+- In Azure AI Foundry, go to Get Started - Model catalog
+- Im choosing gpt-4.1
+- The result page will show some code on usage as well as Target URI and Key.
+```
+# project_2/.env
+AZURE_OPENAI_API_KEY="<key>"
+AZURE_OPENAI_ENDPOINT="https://openai-robotoad.openai.azure.com/openai/deployments/gpt-4.1/chat/completions?api-version=2025-01-01-preview"
+```
+
+# Working on IcM Integration 
+https://support.microsoft.com/en-us/windows/manage-devices-used-with-your-microsoft-account-d4044995-81db-b24b-757e-1102d148f441
