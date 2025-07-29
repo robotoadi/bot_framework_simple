@@ -59,3 +59,8 @@ AZURE_OPENAI_ENDPOINT="https://openai-robotoad.openai.azure.com/openai/deploymen
 
 # Working on IcM Integration 
 https://support.microsoft.com/en-us/windows/manage-devices-used-with-your-microsoft-account-d4044995-81db-b24b-757e-1102d148f441
+
+```
+sudo apt install seahorse
+```
+https://learn.microsoft.com/en-us/entra/msal/python/advanced/linux-broker-py-wsl?tabs=ubuntudep
